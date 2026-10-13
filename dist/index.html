@@ -1,50 +1,25 @@
 <!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#eeede5"><meta name="description" content="Retrouvez 2B dans votre espace. Un compagnon animé, une scène 3D et un chat connecté à votre IA.">
-  <title>2B — Votre compagnon</title>
-  <link rel="icon" href="assets/avatar.png"><link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="app">
-    <aside class="rail" aria-label="Navigation">
-      <a class="brand" href="./" aria-label="Accueil 2B">◇</a>
-      <button class="rail-button active" id="home" aria-label="Espace compagnon" title="Espace compagnon"><svg viewBox="0 0 24 24"><path d="m12 3 8 5v8l-8 5-8-5V8zM4 8l8 5 8-5M12 13v8"/></svg></button>
-      <button class="rail-button" id="chat-focus" aria-label="Ouvrir le chat" title="Conversation"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 1-8 8H5l-3 3V11a9 9 0 0 1 18 0Z"/><path d="M7 10h8M7 14h5"/></svg></button>
-      <span class="rail-space"></span>
-      <button class="rail-button" id="settings-open" aria-label="Paramètres" title="Paramètres"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg></button>
-      <div class="rail-mark">YH</div>
-    </aside>
-    <main>
-      <header class="topbar"><div class="wordmark">COMPANION <span>/</span> <b>2B</b></div><div class="top-right"><span class="live-dot"></span><span>À vos côtés</span><button id="connect-top" class="button small">Connecter une IA <span>↗</span></button></div></header>
-      <div class="workspace">
-        <section class="companion-space" aria-label="Votre compagnon 2B">
-          <div class="scene-heading"><div class="eyebrow">VOTRE ESPACE, VOTRE COMPAGNON</div><h1>Un peu de présence.<br>À chaque instant.</h1><p>2B est là. Pour discuter, ou simplement rester ensemble.</p></div>
-          <div class="scene-label"><span class="mini-square"></span> UNITÉ 2B <span class="label-line"></span><span id="state-label">AU REPOS</span></div>
-          <div class="ghost-name" aria-hidden="true">2B<span>YoRHa</span></div>
-          <div id="scene" tabindex="0" role="button" aria-label="Toucher la scène pour faire réagir 2B. Glisser pour déplacer la caméra."><div id="fallback-pet" class="fallback-pet" hidden></div></div>
-          <div class="speech" id="speech" role="status" hidden>Je suis là.</div>
-          <div class="scene-corner"><span>01 / PRÉSENCE</span><span id="render-label">ESPACE 3D INTERACTIF</span></div>
-          <div class="scene-bottom"><div class="touch-hint"><span class="touch-icon">✧</span><div>Touchez pour interagir<small>Glissez pour explorer la scène</small></div></div><div class="view-tools"><button id="theme-toggle" aria-label="Activer l’ambiance nuit" title="Changer d’ambiance">☾</button><button id="reset-view" aria-label="Recentrer la vue" title="Recentrer">⌖</button><button id="fullscreen" aria-label="Plein écran" title="Plein écran">⛶</button></div></div>
-          <div class="actions" aria-label="Interactions"><button data-action="wave"><span>✋</span> Dire bonjour</button><button data-action="jump"><span>✧</span> Un peu d’énergie</button><button data-action="focus"><span>◎</span> Se concentrer</button></div>
-        </section>
-        <aside class="chat-panel" aria-label="Conversation avec 2B">
-          <div class="chat-header"><img src="assets/avatar.png" alt="" class="avatar"><div><h2>2B</h2><p><span class="live-dot"></span><span id="connection-label">Mode découverte</span></p></div><button id="chat-menu" class="icon-button" aria-label="Options de conversation" title="Options">•••</button><div id="conversation-menu" class="menu" hidden><button id="export-chat">Exporter la conversation</button><button id="clear-chat">Nouvelle conversation</button></div></div>
-          <div class="chat-messages" id="messages" role="log" aria-label="Messages" aria-live="polite"></div>
-          <div class="suggestions" id="suggestions"><button>Comment vas-tu ?</button><button>On se concentre ensemble ?</button><button>Raconte-moi quelque chose</button></div>
-          <div class="chat-compose"><div id="chat-error" role="alert" hidden></div><form id="chat-form"><textarea id="message-input" rows="1" maxlength="8000" aria-label="Votre message à 2B" placeholder="Parlez à 2B…"></textarea><button type="submit" id="send-button" aria-label="Envoyer le message">↑</button></form><div class="compose-footer"><button id="voice-toggle" aria-pressed="false"><span>◖</span> Voix désactivée</button><span>Entrée pour envoyer</span></div></div>
-          <div class="connection-card"><span class="connection-symbol">✳</span><div><b id="provider-caption">Une conversation à votre image</b><p id="provider-detail">Connectez votre IA pour aller plus loin.</p></div><button id="connection-settings" aria-label="Configurer l’intelligence artificielle">↗</button></div>
-        </aside>
-      </div>
-      <footer><span>2B <span class="footer-divider">/</span> UN COMPAGNON POUR VOTRE QUOTIDIEN</span><span>PRENEZ LE TEMPS D’ÊTRE LÀ <span class="footer-star">✳</span></span></footer>
-    </main>
-  </div>
-  <dialog id="settings-dialog"><form id="settings-form"><div class="dialog-heading"><div><div class="eyebrow">PERSONNALISEZ VOTRE EXPÉRIENCE</div><h2>Une IA pour 2B.</h2></div><button type="button" id="settings-close" class="icon-button" aria-label="Fermer">×</button></div><p class="dialog-description">Choisissez le service qui animera vos conversations.</p>
-    <label for="provider">Fournisseur</label><select id="provider"><option value="demo">Découverte — sans clé API</option><option value="openai">OpenAI (modèles de ChatGPT)</option><option value="openrouter">OpenRouter</option><option value="custom">API compatible OpenAI</option></select>
-    <div id="api-fields" hidden><label for="api-key">Clé API</label><div class="key-field"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Votre clé API"><button type="button" id="reveal-key" aria-label="Afficher la clé">Voir</button></div><p class="field-note">La clé reste en mémoire dans cet onglet. Elle est envoyée uniquement au fournisseur choisi et disparaît au rechargement.</p><label for="model">Modèle</label><input id="model" maxlength="150" placeholder="Identifiant du modèle"><div id="custom-fields" hidden><label for="endpoint">URL de base de l’API</label><input id="endpoint" type="url" placeholder="https://votre-api.example/v1"><p class="field-note">Le service doit accepter les requêtes du navigateur (CORS).</p></div><p class="field-note" id="billing-note">Une clé OpenAI avec facturation API est nécessaire. L’abonnement ChatGPT ne comprend pas l’accès API.</p></div>
-    <label for="personality">Personnalité de 2B</label><textarea id="personality" rows="3" maxlength="3000">Calme, attentive et précise. Tu réponds en français, avec chaleur et concision. Tu es 2B, un compagnon virtuel, et tu ne prétends pas être humaine.</textarea><p class="field-note">Conversations enregistrées sur cet appareil. Les messages sont transmis au fournisseur lors de l’envoi.</p><div id="settings-error" role="alert" hidden></div><button class="button primary" type="submit">Enregistrer les paramètres <span>↗</span></button>
-  </form></dialog>
-  <div id="toast" role="status" hidden></div>
-  <script type="module" src="app.js"></script>
-</body></html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#e8edf2" />
+    <meta
+      name="description"
+      content="2B, votre compagnon YoRHa en 3D. Conversations et mémoire, dans un espace à vous."
+    />
+    <link rel="icon" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <title>YoRHa · 2B Companion</title>
+    <script type="module" crossorigin src="/assets/index-b0VSiQGW.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-hePW80VL.js">
+    <link rel="modulepreload" crossorigin href="/assets/three-DB1D3fyd.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-CgpEFzMb.css">
+  <link rel="manifest" href="/manifest.webmanifest"></head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

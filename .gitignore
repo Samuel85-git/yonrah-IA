@@ -2,3 +2,6 @@
 !.env.example
 node_modules/
 *.tar.gz
+*.zip
+*.tsbuildinfo
+.npmrc

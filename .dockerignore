@@ -1,0 +1,10 @@
+.git
+.openai
+.github
+node_modules
+dist
+.env*
+*.tar.gz
+*.zip
+tests
+*.tsbuildinfo
