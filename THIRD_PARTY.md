@@ -16,11 +16,7 @@
 
 ## Mouvements
 
-- Fichier : `public/models/motion.glb`.
-- Source : exemple officiel Three.js, [Xbot.glb](https://github.com/mrdoob/three.js/blob/r180/examples/models/gltf/Xbot.glb).
-- Mouvements du personnage d’exemple issu de Mixamo, distribué avec Three.js. Le personnage Xbot n’est pas affiché ; ses clips sont adaptés au squelette de 2B. Les mouvements sont utilisés dans cette application et ne sont pas proposés comme une bibliothèque d’animations autonome.
-- Three.js : [licence MIT](https://github.com/mrdoob/three.js/blob/dev/LICENSE), © 2010–2026 Three.js authors.
-- Ajouts de l’application : suivi de tête, salut et transitions. Les mouvements ne sont pas extraits du jeu NieR:Automata et ne sont pas ses animations officielles.
+Les mouvements sont créés par le moteur procédural de cette application (`src/motion.ts`), directement pour le squelette de 2B. Les anciens clips Xbot/Mixamo ne sont plus utilisés ni distribués. Ces mouvements ne sont pas extraits du jeu NieR:Automata et ne sont pas ses animations officielles.
 
 ## Identité et contexte
 

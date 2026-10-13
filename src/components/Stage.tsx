@@ -10,24 +10,19 @@ import type { ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, OrbitControls, useGLTF } from "@react-three/drei";
 import {
-  AnimationMixer,
-  AnimationClip,
-  QuaternionKeyframeTrack,
   Box3,
   Group,
   Mesh,
   MeshStandardMaterial,
   PMREMGenerator,
-  Quaternion,
   SkinnedMesh,
   Vector3,
-  LoopOnce,
-  LoopRepeat,
 } from "three";
-import type { AnimationAction, Bone, Object3D } from "three";
+import type { Object3D } from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import type { Action } from "../types";
+import { createMotion } from "../motion";
 
 type Props = {
   action: Action;
@@ -147,10 +142,7 @@ function Character({
   onReady,
 }: Pick<Props, "action" | "reduced" | "onTouch" | "onReady">) {
   const asset = useGLTF("/models/2b.glb");
-  const motion = useGLTF("/models/motion.glb");
   const outer = useRef<Group>(null);
-  const started = useRef(0);
-  const current = useRef<AnimationAction | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const prepared = useMemo(() => {
     const model = clone(asset.scene);
@@ -194,67 +186,6 @@ function Character({
     });
     importedHelpers.forEach((o) => o.removeFromParent());
     model.updateMatrixWorld(true);
-    const canonical = (value: string) =>
-      value
-        .replace(/_\d+$/, "")
-        .replace(/[^a-z]/gi, "")
-        .toLowerCase();
-    // Rebase motion around its first idle pose. This preserves this model’s own
-    // bind pose, scale and proportions instead of copying the source’s root transforms.
-    const idleClip = motion.animations.find((c) => c.name === "idle")!;
-    const sourceBaseline = new Map(
-      idleClip.tracks
-        .filter((t) => t.name.endsWith(".quaternion"))
-        .map((t) => [
-          canonical(t.name.slice(0, -11)),
-          new Quaternion().fromArray(t.values),
-        ]),
-    );
-    for (const bone of targetSkin.skeleton.bones) {
-      if (canonical(bone.name) === "mixamorigrightarm")
-        bone.quaternion.multiply(
-          new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), 0.22),
-        );
-      if (canonical(bone.name) === "mixamorigleftarm")
-        bone.quaternion.multiply(
-          new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), -0.22),
-        );
-    }
-    const clips: Record<string, AnimationClip> = {};
-    for (const clip of motion.animations.filter((c) =>
-      ["idle", "agree", "walk", "sad_pose"].includes(c.name),
-    )) {
-      const tracks = [];
-      for (const track of clip.tracks) {
-        if (!track.name.endsWith(".quaternion")) continue;
-        const name = canonical(track.name.slice(0, -11));
-        const bone = targetSkin.skeleton.bones.find(
-          (b) => canonical(b.name) === name,
-        );
-        const baseline = sourceBaseline.get(name);
-        if (!bone || !baseline) continue;
-        const inverse = baseline.clone().invert();
-        const values = new Float32Array(track.values.length);
-        for (let index = 0; index < values.length; index += 4) {
-          const delta = inverse
-            .clone()
-            .multiply(new Quaternion().fromArray(track.values, index));
-          bone.quaternion
-            .clone()
-            .multiply(delta)
-            .normalize()
-            .toArray(values, index);
-        }
-        tracks.push(
-          new QuaternionKeyframeTrack(
-            bone.name + ".quaternion",
-            track.times,
-            values,
-          ),
-        );
-      }
-      clips[clip.name] = new AnimationClip(clip.name, clip.duration, tracks);
-    }
     model.updateMatrixWorld(true);
     const bounds = new Box3().setFromObject(model);
     const size = bounds.getSize(new Vector3());
@@ -271,113 +202,14 @@ function Character({
       if ("isLight" in o || "isCamera" in o) helpers.push(o);
     });
     helpers.forEach((o) => o.removeFromParent());
-    const mixer = new AnimationMixer(model);
-    const actions = Object.fromEntries(
-      Object.entries(clips).map(([name, clip]) => [
-        name,
-        mixer.clipAction(clip),
-      ]),
-    );
-    const find = (part: string) =>
-      targetSkin!.skeleton.bones.find(
-        (b) => canonical(b.name) === ("mixamorig" + part).toLowerCase(),
-      );
-    return {
-      pivot,
-      model,
-      mixer,
-      actions,
-      bones: {
-        head: find("Head"),
-        arm: find("RightArm"),
-        forearm: find("RightForeArm"),
-        hand: find("RightHand"),
-        spine: find("Spine2"),
-      },
-      boneCount: targetSkin.skeleton.bones.length,
-    };
-  }, [asset, motion]);
+    const motion = createMotion(model, targetSkin.skeleton.bones);
+    return { pivot, model, motion };
+  }, [asset]);
   useEffect(() => {
     onReady(true);
-    return () => {
-      prepared.mixer.stopAllAction();
-      prepared.mixer.uncacheRoot(prepared.model);
-    };
   }, [prepared, onReady]);
-  useEffect(() => {
-    const name =
-      action.type === "agree"
-        ? "agree"
-        : action.type === "walk"
-          ? "walk"
-          : "idle";
-    const next = prepared.actions[name] || prepared.actions.idle;
-    if (next) {
-      next.reset().setEffectiveTimeScale(1).setEffectiveWeight(1);
-      next.setLoop(name === "agree" ? LoopOnce : LoopRepeat, Infinity);
-      next.clampWhenFinished = name === "agree";
-      next.play();
-      if (current.current && current.current !== next)
-        current.current.crossFadeTo(next, 0.45, true);
-      current.current = next;
-    }
-    started.current = performance.now();
-  }, [action, prepared]);
-  const rotation = new Quaternion();
-  function addRotation(
-    bone: Bone | undefined,
-    x: number,
-    y: number,
-    z: number,
-  ) {
-    if (!bone) return;
-    rotation.setFromAxisAngle(new Vector3(1, 0, 0), x);
-    bone.quaternion.multiply(rotation);
-    rotation.setFromAxisAngle(new Vector3(0, 1, 0), y);
-    bone.quaternion.multiply(rotation);
-    rotation.setFromAxisAngle(new Vector3(0, 0, 1), z);
-    bone.quaternion.multiply(rotation);
-  }
-  useFrame(({ pointer, clock }, delta) => {
-    const dt = Math.min(delta, 0.05);
-    prepared.mixer.update(reduced ? 0 : dt);
-    const elapsed = (performance.now() - started.current) / 1000;
-    const envelope =
-      Math.min(1, elapsed / 0.5) *
-      Math.max(0, Math.min(1, (3.7 - elapsed) / 0.7));
-    if (!reduced) {
-      addRotation(prepared.bones.head, pointer.y * -0.09, pointer.x * 0.12, 0);
-      if (action.type === "greet" && elapsed < 3.7) {
-        addRotation(prepared.bones.arm, -0.15 * envelope, 0, -0.9 * envelope);
-        addRotation(prepared.bones.forearm, -0.8 * envelope, 0, 0.5 * envelope);
-        addRotation(
-          prepared.bones.hand,
-          0,
-          0.18 * Math.sin(elapsed * 8) * envelope,
-          0,
-        );
-      }
-      if (action.type === "thinking" || action.type === "focus")
-        addRotation(prepared.bones.head, 0.08, 0, -0.035);
-      if (action.type === "speak")
-        addRotation(
-          prepared.bones.spine,
-          0,
-          Math.sin(clock.elapsedTime * 1.2) * 0.015,
-          0,
-        );
-    }
-    if (
-      action.type === "agree" &&
-      elapsed > 3 &&
-      current.current !== prepared.actions.idle
-    ) {
-      const next = prepared.actions.idle;
-      next.reset().play();
-      current.current?.crossFadeTo(next, 0.55, true);
-      current.current = next;
-    }
-    prepared.model.updateMatrixWorld(true);
+  useFrame(({ pointer }, delta) => {
+    prepared.motion.update(action, delta, reduced, pointer);
   });
   return (
     <group
