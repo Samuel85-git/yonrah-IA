@@ -9,7 +9,7 @@ export default defineConfig({
       manifest: {
         name: "YoRHa · 2B Companion",
         short_name: "2B",
-        description: "Votre compagnon 2B en 3D, avec chat et mémoire.",
+        description: "Votre compagnon 2B en 2,5D, avec chat et mémoire.",
         theme_color: "#e8edf2",
         background_color: "#e8edf2",
         display: "standalone",

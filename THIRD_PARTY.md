@@ -1,22 +1,18 @@
 # Ressources tierces
 
-## Personnage 2B
+## Avatar cinématique 2B
 
-- Fichier : `public/models/2b.glb`.
-- Titre de la publication : **2B nier automata**.
-- Auteur de la publication : **Cyber** (`calibreefe20`).
-- Publication : https://sketchfab.com/3d-models/2b-nier-automata-d3e553bc325f4e0bb211f37a16f5ee12
-- Licence annoncée par la publication : [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
-- Licence vérifiée le 13 octobre 2026 via l’API publique Sketchfab : `https://api.sketchfab.com/v3/models/d3e553bc325f4e0bb211f37a16f5ee12`, champs `license.slug=by`, `license.label=CC Attribution`, `isDownloadable=true`.
-- Fichier obtenu dans la distribution Objaverse : https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-106/d3e553bc325f4e0bb211f37a16f5ee12.glb
-- Adaptations dans l’application : normalisation de l’échelle, matériaux anime, contours de tenue, cheveux mats, mouvements procéduraux, respiration, réactions au toucher, ajustement de la forme et de la position du bandeau et cadrage. Le GLB source reste intact.
-- L’attribution est également affichée dans l’application.
+`public/assets/2b-cinematic.png` est une nouvelle illustration générée pour cette application à partir des références de 2B fournies par l’utilisateur. Elle ne reprend pas le fichier de l’illustrateur ni ses inscriptions. Le rendu semi-réaliste est animé sur une surface WebGL en 2,5D ; il ne s’agit pas d’un modèle 3D officiel reconstruit depuis le jeu.
 
-2B, YoRHa et NieR:Automata appartiennent à leurs ayants droit, notamment Square Enix / PlatinumGames. La licence de la publication communautaire ne transfère pas les droits sur le personnage. Cette application compagnon est une création de fan non officielle.
+2B, YoRHa et NieR:Automata appartiennent à leurs ayants droit, notamment Square Enix / PlatinumGames. Cette application compagnon est une création de fan non officielle.
+
+## Ancien modèle
+
+Le GLB de Cyber (`calibreefe20`), [2B nier automata](https://sketchfab.com/3d-models/2b-nier-automata-d3e553bc325f4e0bb211f37a16f5ee12), sous [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), était utilisé dans les versions précédentes. Il n’est plus distribué dans la version cinématique ; son historique et ses crédits restent dans Git.
 
 ## Mouvements
 
-Les mouvements sont créés par le moteur procédural de cette application (`src/motion.ts`), directement pour le squelette de 2B. Les anciens clips Xbot/Mixamo ne sont plus utilisés ni distribués. Ces mouvements ne sont pas extraits du jeu NieR:Automata et ne sont pas ses animations officielles.
+Les mouvements de la nouvelle version sont créés par `src/cinematic-motion.ts` et le moteur 2,5D de l’application : respiration, réactions, changements d’appui et oscillations amorties de la robe et des cheveux. Aucune animation officielle de NieR:Automata ni clip Xbot/Mixamo n’est distribué.
 
 ## Identité et contexte
 
@@ -24,7 +20,7 @@ Le prompt est une rédaction originale, fondée sur la [présentation officielle
 
 ## Image Pets
 
-`public/assets/2b-sprites.png` et son avatar proviennent du pet existant `pet_6ac22a9b89e081918889c6abb13d6635`, réutilisé à la demande de son propriétaire. Le pet enregistré n’a pas été modifié. L’image du pet est conservée dans les sources ; le personnage de la scène utilise maintenant le GLB riggé.
+`public/assets/2b-sprites.png` et son avatar proviennent du pet existant `pet_6ac22a9b89e081918889c6abb13d6635`, réutilisé à la demande de son propriétaire. Le pet enregistré n’a pas été modifié. L’image du pet est conservée dans les sources ; le personnage de la scène et le portrait du chat utilisent maintenant la nouvelle illustration cinématique.
 
 ## Bibliothèques
 

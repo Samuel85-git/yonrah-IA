@@ -1667,3 +1667,24 @@ p {
   transform: translate(-50%, -50%);
   z-index: 3;
 }
+
+.companion-portrait {
+  display: block;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 50%;
+  background: #cbd0d6 url('/assets/2b-cinematic.png') center 1% / 330% auto no-repeat;
+  border: 1px solid rgba(255,255,255,.7);
+}
+
+@media (max-width: 650px) {
+  .unit-info h1 span {
+    display: none;
+  }
+  .companion-portrait {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+}

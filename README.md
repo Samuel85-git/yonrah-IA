@@ -1,6 +1,6 @@
 # YoRHa · 2B Companion
 
-Application compagnon **installable (PWA)** en français : véritable modèle 3D riggé, animations corporelles, interface en verre translucide et chat OpenAI / OpenRouter. Application de fan non officielle, sans affiliation à Square Enix ou PlatinumGames.
+Application compagnon **installable (PWA)** en français : avatar cinématique 2,5D animé, mouvements de robe et de cheveux, interface en verre translucide et chat OpenAI / OpenRouter. Application de fan non officielle, sans affiliation à Square Enix ou PlatinumGames.
 
 ## Stack
 
@@ -48,15 +48,15 @@ Le workflow utilise le `GITHUB_TOKEN` de GitHub Actions avec `packages: write`. 
 
 ## 2B et les animations
 
-Le personnage est un **GLB en volume, avec maillage et squelette**, affiché au centre de l’écran avec une caméra libre. Le modèle communautaire existant est restylisé en rendu anime : matériaux toon à quatre niveaux, contours fins sur la tenue, cheveux ivoire mats, palette charbon et bandeau ajusté. Il ne s’agit pas d’un nouveau modèle officiel du jeu.
+Le personnage a été remplacé par une nouvelle illustration semi-réaliste haute définition, générée spécialement pour cette application à partir des références fournies par l’utilisateur. Elle est affichée sur une surface WebGL subdivisée en 2,5D. Le visage, les matières de la robe et les cheveux sont entièrement renouvelés ; l’ancien GLB n’est plus utilisé.
 
-Les sept états (repos, salut, acquiescement, petits pas sur place, concentration, réflexion et dialogue) sont animés directement sur le squelette de 2B. Au repos, un cycle respiratoire de 4,8 secondes anime doucement le buste et les épaules, sans déplacer les pieds. La posture bras détendus est appliquée avant la première image ; les rotations et les échelles sont recalculées sans accumulation.
+La caméra reste frontale, avec une petite profondeur et une parallaxe au glissement. Ce rendu n’offre pas de rotation à 360° : une image de face ne contient pas les vues arrière du personnage. Le moteur déforme localement le maillage pour la respiration, les mouvements de tête et d’épaules, les changements de posture et les réactions au toucher. Les pieds restent ancrés au sol.
 
-Le toucher ajoute une réaction courte : léger recul des épaules, orientation de la tête vers le contact, inclinaison différente sur la tête et retour progressif au calme. Cette réaction se superpose à l’activité en cours sans interrompre la réflexion ou le dialogue. Les contacts sont espacés d’au moins 700 ms ; un glissement pour tourner la caméra n’est pas un contact. Le bouton Saluer reste un geste volontaire distinct. Les petits pas utilisent une cinématique inverse à deux segments. Le mode de réduction des animations conserve une pose détendue fixe, tout en permettant les interactions et le chat.
+La robe et les cheveux suivent des ressorts amortis qui réagissent aux gestes puis reviennent progressivement au repos. Il s’agit de mouvements secondaires procéduraux, pas d’une simulation complète de tissu avec couture et collisions. Le salut est une reconnaissance discrète de la tête ; Bouger déclenche un changement d’appui, sans tenter une marche volumétrique à partir de l’image de face.
 
-Ces animations ne sont pas extraites de NieR:Automata. Le modèle communautaire a un squelette de 38 articulations, sans système complet de visèmes ou de simulation des cheveux et de la robe. La lecture vocale utilise la voix du navigateur : aucune imitation de la comédienne originale, et pas de synchronisation labiale annoncée.
+Les réactions au toucher restent superposées à l’activité en cours : elles n’interrompent pas la réflexion ou le dialogue. Les contacts sont temporisés et les glissements de caméra ne sont pas des contacts. La préférence système de réduction des mouvements est respectée. Sans WebGL, un portrait statique permet de conserver l’accès au chat.
 
-Les mouvements réduits du système sont respectés. Sur un appareil sans WebGL, l’interface explique l’indisponibilité de la 3D. Le mode nuit, le recentrage et le plein écran sont accessibles depuis les contrôles flottants.
+Ces mouvements ne sont pas les animations officielles de NieR:Automata. La voix optionnelle reste celle du navigateur, sans synchronisation labiale complète.
 
 ## Identité et prompt système
 
@@ -78,10 +78,10 @@ La facturation API OpenAI est distincte d’un abonnement ChatGPT. Une API exter
 
 ## Installation et hors ligne
 
-Utiliser le bouton Installer ou le menu du navigateur (« Installer l’application » / « Ajouter à l’écran d’accueil »). La prise en charge dépend du navigateur. Le service worker conserve les assets, y compris les modèles, pour retrouver la scène et la mémoire hors ligne après le premier chargement. Le chat IA nécessite toujours Internet. Sur Sites privé, l’authentification de la plateforme peut limiter un premier accès ou une réouverture hors ligne.
+Utiliser le bouton Installer ou le menu du navigateur (« Installer l’application » / « Ajouter à l’écran d’accueil »). La prise en charge dépend du navigateur. Le service worker conserve les assets, y compris l’avatar, pour retrouver la scène et la mémoire hors ligne après le premier chargement. Le chat IA nécessite toujours Internet. Sur Sites privé, l’authentification de la plateforme peut limiter un premier accès ou une réouverture hors ligne.
 
 ## Validation
 
 Tests Vitest : persistance et chiffrement de la clé, suppression, reprise de l’ancien historique, conversations actives, prompt canonique et notes, destination des appels, erreurs d’authentification, validation HTTPS et limitation du contexte. Les appels IA sont vérifiés avec des réponses simulées ; une vraie clé et des crédits sont nécessaires pour une conversation réelle.
 
-Voir [THIRD_PARTY.md](THIRD_PARTY.md) pour les licences et les attributions des modèles et mouvements.
+Voir [THIRD_PARTY.md](THIRD_PARTY.md) pour les licences et les attributions de l’avatar et des mouvements.

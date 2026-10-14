@@ -24,7 +24,7 @@ import {
   Square,
   Circle,
 } from "lucide-react";
-import Stage from "./components/Stage";
+import Stage from "./components/CinematicStage";
 import SettingsPanel from "./components/Settings";
 import { DEFAULT_SETTINGS, newConversation, PROVIDERS } from "./types";
 import type {
@@ -459,7 +459,7 @@ export default function App() {
       <div className="scene-status">
         <span className="status-dash" />
         <span data-testid="motion-label">{motionLabels[action.type]}</span>
-        <small>RENDU ANIME · PRÉSENCE VIVANTE</small>
+        <small>RENDU 2,5D · PRÉSENCE VIVANTE</small>
       </div>
       <nav className="side-tools" aria-label="Votre espace">
         <button
@@ -511,7 +511,7 @@ export default function App() {
         </div>
       )}
       <div className="interaction-hint">
-        <span>Glissez pour explorer</span>
+        <span>Glissez pour changer l’angle</span>
         <Circle size={3} />
         <span>Touchez pour interagir</span>
       </div>
@@ -583,7 +583,7 @@ export default function App() {
             <div className="drawer-title">
               {panel === "chat" ? (
                 <>
-                  <img src="/assets/avatar.png" alt="" />
+                  <span className="companion-portrait" aria-hidden="true" />
                   <div>
                     <h2>2B</h2>
                     <p>
@@ -915,11 +915,11 @@ export default function App() {
       )}
       <div className="credits">
         <a
-          href="https://sketchfab.com/3d-models/2b-nier-automata-d3e553bc325f4e0bb211f37a16f5ee12"
+          href="https://github.com/Samuel85-git/yonrah-IA"
           target="_blank"
           rel="noreferrer"
         >
-          Modèle 2B · Cyber · CC BY 4.0
+          Avatar 2B · création 2,5D
         </a>
         <span>
           NieR:Automata © Square Enix / PlatinumGames · application non
