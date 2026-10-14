@@ -31,11 +31,75 @@ function rig() {
   return { root, bones, find, pos, motion: createMotion(root, bones) };
 }
 describe("2B animation regressions", () => {
-  it('completes the raised greeting at low frame rates as well as at 60 fps', () => {
+  it("breathes through the chest without moving the planted feet or accumulating scale", () => {
+    const r = rig();
+    const feet = [r.pos("LeftFoot"), r.pos("RightFoot")];
+    let min = Infinity,
+      max = -Infinity;
+    for (let i = 0; i < 900; i++) {
+      r.motion.update({ type: "idle", id: 1 }, 1 / 60, false);
+      min = Math.min(min, r.find("Spine2").scale.y);
+      max = Math.max(max, r.find("Spine2").scale.y);
+      expect(r.pos("LeftFoot").distanceTo(feet[0])).toBeLessThan(1e-6);
+      expect(r.pos("RightFoot").distanceTo(feet[1])).toBeLessThan(1e-6);
+    }
+    expect(max - min).toBeGreaterThan(0.02);
+    expect(max).toBeLessThan(1.013);
+    expect(min).toBeGreaterThan(0.987);
+    for (let i = 0; i < 200; i++)
+      r.motion.update({ type: "idle", id: 1 }, 1 / 60, true);
+    expect(r.find("Spine2").scale.y).toBeCloseTo(1, 6);
+  });
+  it("layers a directional touch over thinking and returns to that same activity", () => {
+    const baseline = rig(),
+      touched = rig();
+    for (let i = 0; i < 300; i++) {
+      baseline.motion.update({ type: "thinking", id: 1 }, 1 / 60, false);
+      touched.motion.update(
+        { type: "thinking", id: 1 },
+        1 / 60,
+        false,
+        undefined,
+        false,
+        { id: 1, x: 0.8, y: 0.8, zone: "head", variant: 0 },
+      );
+      if (i === 40)
+        expect(
+          touched
+            .find("Head")
+            .quaternion.angleTo(baseline.find("Head").quaternion),
+        ).toBeGreaterThan(0.06);
+    }
+    touched.bones.forEach((b, i) =>
+      expect(b.quaternion.angleTo(baseline.bones[i].quaternion)).toBeLessThan(
+        1e-5,
+      ),
+    );
+    const quiet = rig();
+    for (let i = 0; i < 120; i++)
+      quiet.motion.update(
+        { type: "idle", id: 1 },
+        1 / 60,
+        true,
+        undefined,
+        false,
+        { id: i, x: 1, y: 1, zone: "head", variant: 1 },
+      );
+    const neutral = rig();
+    quiet.bones.forEach((b, i) =>
+      expect(b.quaternion.angleTo(neutral.bones[i].quaternion)).toBeLessThan(
+        1e-6,
+      ),
+    );
+  });
+  it("completes the raised greeting at low frame rates as well as at 60 fps", () => {
     for (const fps of [4, 30, 60]) {
       const r = rig();
-      for (let i = 0; i < fps * 2; i++) r.motion.update({type:'greet',id:1}, 1/fps, false);
-      expect(r.pos('RightHand').y).toBeGreaterThan(r.pos('RightForeArm').y + 10);
+      for (let i = 0; i < fps * 2; i++)
+        r.motion.update({ type: "greet", id: 1 }, 1 / fps, false);
+      expect(r.pos("RightHand").y).toBeGreaterThan(
+        r.pos("RightForeArm").y + 10,
+      );
     }
   });
 

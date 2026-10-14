@@ -9,7 +9,7 @@
 - Licence annoncée par la publication : [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
 - Licence vérifiée le 13 octobre 2026 via l’API publique Sketchfab : `https://api.sketchfab.com/v3/models/d3e553bc325f4e0bb211f37a16f5ee12`, champs `license.slug=by`, `license.label=CC Attribution`, `isDownloadable=true`.
 - Fichier obtenu dans la distribution Objaverse : https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-106/d3e553bc325f4e0bb211f37a16f5ee12.glb
-- Adaptations dans l’application : normalisation de l’échelle, éclairage, adaptation des mouvements, poses supplémentaires, repositionnement du bandeau au niveau des yeux et cadrage. Le GLB source reste intact.
+- Adaptations dans l’application : normalisation de l’échelle, matériaux anime, contours de tenue, cheveux mats, mouvements procéduraux, respiration, réactions au toucher, ajustement de la forme et de la position du bandeau et cadrage. Le GLB source reste intact.
 - L’attribution est également affichée dans l’application.
 
 2B, YoRHa et NieR:Automata appartiennent à leurs ayants droit, notamment Square Enix / PlatinumGames. La licence de la publication communautaire ne transfère pas les droits sur le personnage. Cette application compagnon est une création de fan non officielle.

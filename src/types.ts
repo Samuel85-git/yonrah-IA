@@ -35,6 +35,15 @@ export interface Action {
   type: Motion;
   id: number;
 }
+export interface TouchPoint {
+  x: number;
+  y: number;
+  zone: "head" | "body" | "space";
+}
+export interface TouchReaction extends TouchPoint {
+  id: number;
+  variant: number;
+}
 export const PROVIDERS = {
   demo: { name: "Découverte", model: "", base: "" },
   openai: {

@@ -21,14 +21,16 @@ import {
 import type { Object3D } from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import type { Action } from "../types";
+import type { Action, TouchPoint, TouchReaction } from "../types";
 import { createMotion } from "../motion";
+import { animeMaterial, animeOutline, animeRamp } from "../anime";
 
 type Props = {
   action: Action;
   night: boolean;
   reduced: boolean;
-  onTouch: () => void;
+  onTouch: (point: TouchPoint) => void;
+  reaction?: TouchReaction;
   onReady: (ready: boolean) => void;
   reset: number;
 };
@@ -68,12 +70,12 @@ function Lighting({ night }: { night: boolean }) {
       <ambientLight intensity={night ? 0.5 : 0.8} />
       <directionalLight
         position={[3, 5, 4]}
-        intensity={night ? 2 : 3}
+        intensity={night ? 1.7 : 2.1}
         color={night ? "#a8bcf0" : "#fff4e6"}
       />
       <directionalLight
         position={[-3, 2, -2]}
-        intensity={night ? 3 : 2}
+        intensity={night ? 1.1 : 0.65}
         color="#c7d8fc"
       />
     </>
@@ -137,21 +139,34 @@ function Pod({ reduced }: { reduced: boolean }) {
 }
 function Character({
   action,
+  reaction,
   reduced,
   onTouch,
   onReady,
-}: Pick<Props, "action" | "reduced" | "onTouch" | "onReady">) {
+}: Pick<Props, "action" | "reaction" | "reduced" | "onTouch" | "onReady">) {
   const asset = useGLTF("/models/2b.glb");
   const outer = useRef<Group>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const prepared = useMemo(() => {
     const model = clone(asset.scene);
+    const meshLabels = new Map<string, string>(
+      asset.parser.json.nodes
+        .filter((node: { mesh?: number }) => node.mesh !== undefined)
+        .map((node: { name: string; mesh: number }) => [
+          node.name,
+          asset.parser.json.meshes[node.mesh].name,
+        ]),
+    );
     let targetSkin: SkinnedMesh | undefined;
+    const ramp = animeRamp();
+    const outlineMaterial = animeOutline();
+    const outlines: SkinnedMesh[] = [];
     model.traverse((o) => {
       if ((o as SkinnedMesh).isSkinnedMesh && !targetSkin)
         targetSkin = o as SkinnedMesh;
       if ((o as Mesh).isMesh) {
         const mesh = o as Mesh;
+        const meshLabel = meshLabels.get(mesh.name) ?? mesh.name;
         mesh.castShadow = true;
         mesh.frustumCulled = false;
         const list = Array.isArray(mesh.material)
@@ -159,20 +174,42 @@ function Character({
           : [mesh.material];
         if (list.some((m) => m.name === "Material.001")) {
           mesh.geometry = mesh.geometry.clone();
-          mesh.geometry.translate(0, -12.5, 0);
+          const position = mesh.geometry.getAttribute("position");
+          for (let i = 0; i < position.count; i++)
+            position.setY(i, 156.7 + (position.getY(i) - 169.15) * 0.5);
+          position.needsUpdate = true;
+          mesh.geometry.computeBoundingBox();
+          mesh.geometry.computeBoundingSphere();
         }
-        mesh.material = list.map((material) => {
-          const copy = material.clone() as MeshStandardMaterial;
-          if (copy.isMeshStandardMaterial) {
-            copy.roughness = Math.max(0.38, copy.roughness);
-            copy.metalness = Math.min(0.15, copy.metalness);
-            if (copy.map) copy.map.anisotropy = 4;
-          }
-          return copy;
-        });
-        if (!Array.isArray((o as Mesh).material) || list.length === 1)
-          mesh.material = (mesh.material as MeshStandardMaterial[])[0];
+        const materials = list.map((material) =>
+          animeMaterial(material as MeshStandardMaterial, ramp, meshLabel),
+        );
+        mesh.material = materials.length === 1 ? materials[0] : materials;
+        // An inverted hull follows the same skinning, so contours move with the body.
+        if (
+          (mesh as SkinnedMesh).isSkinnedMesh &&
+          !/hair|head|eye/i.test(meshLabel) &&
+          !list.some((m) => m.transparent || m.alphaTest > 0)
+        ) {
+          const skin = mesh as SkinnedMesh;
+          const edge = new SkinnedMesh(mesh.geometry, outlineMaterial);
+          edge.name = "anime-outline";
+          edge.bindMode = skin.bindMode;
+          edge.skeleton = skin.skeleton;
+          edge.bindMatrix.copy(skin.bindMatrix);
+          edge.bindMatrixInverse.copy(skin.bindMatrixInverse);
+          edge.frustumCulled = false;
+          edge.raycast = () => {};
+          outlines.push(edge);
+          // Add after traversal to avoid traversing generated contour meshes.
+          edge.userData.source = mesh;
+        }
       }
+    });
+    outlines.forEach((edge) => {
+      const source = edge.userData.source as Mesh;
+      delete edge.userData.source;
+      source.add(edge);
     });
     if (!targetSkin) throw new Error("Squelette du personnage absent.");
     const importedHelpers: Object3D[] = [];
@@ -185,7 +222,6 @@ function Character({
         importedHelpers.push(o);
     });
     importedHelpers.forEach((o) => o.removeFromParent());
-    model.updateMatrixWorld(true);
     model.updateMatrixWorld(true);
     const bounds = new Box3().setFromObject(model);
     const size = bounds.getSize(new Vector3());
@@ -209,20 +245,29 @@ function Character({
     onReady(true);
   }, [prepared, onReady]);
   useFrame(({ pointer }, delta) => {
-    prepared.motion.update(action, delta, reduced, pointer);
+    prepared.motion.update(action, delta, reduced, pointer, false, reaction);
   });
   return (
     <group
       ref={outer}
       onPointerDown={(e) => {
         e.stopPropagation();
-        touchStart.current = { x: e.clientX, y: e.clientY };
+        touchStart.current =
+          e.isPrimary && e.button === 0 ? { x: e.clientX, y: e.clientY } : null;
+      }}
+      onPointerCancel={() => {
+        touchStart.current = null;
       }}
       onPointerUp={(e) => {
         e.stopPropagation();
         const p = touchStart.current;
         touchStart.current = null;
-        if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 8) onTouch();
+        if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 8)
+          onTouch({
+            x: Math.max(-1, Math.min(1, e.point.x / 0.5)),
+            y: (e.point.y - 0.95) / 0.95,
+            zone: e.point.y > 1.5 ? "head" : "body",
+          });
       }}
     >
       <primitive object={prepared.pivot} />
@@ -257,8 +302,19 @@ function Controls({ reset }: { reset: number }) {
 }
 export default function Stage(props: Props) {
   const [failed, setFailed] = useState(false);
+  const press = useRef<{ x: number; y: number } | null>(null);
   return (
-    <div className="stage" data-testid="stage">
+    <div
+      className="stage"
+      data-testid="stage"
+      onPointerDownCapture={(e) => {
+        press.current =
+          e.isPrimary && e.button === 0 ? { x: e.clientX, y: e.clientY } : null;
+      }}
+      onPointerCancel={() => {
+        press.current = null;
+      }}
+    >
       <Canvas
         camera={{ position: [0, 1.12, 3.65], fov: 35, near: 0.05, far: 60 }}
         dpr={[1, 1.7]}
@@ -268,7 +324,28 @@ export default function Stage(props: Props) {
           powerPreference: "high-performance",
         }}
         onPointerMissed={(e) => {
-          if (e.type === "click") props.onTouch();
+          const p = press.current;
+          press.current = null;
+          if (
+            e.type === "click" &&
+            p &&
+            Math.hypot(e.clientX - p.x, e.clientY - p.y) < 8
+          ) {
+            const rect =
+              e.currentTarget instanceof Element
+                ? e.currentTarget.getBoundingClientRect()
+                : {
+                    left: 0,
+                    top: 0,
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                  };
+            props.onTouch({
+              x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+              y: 1 - ((e.clientY - rect.top) / rect.height) * 2,
+              zone: "space",
+            });
+          }
         }}
         fallback={
           <div className="model-error">
@@ -286,6 +363,7 @@ export default function Stage(props: Props) {
           >
             <Character
               action={props.action}
+              reaction={props.reaction}
               reduced={props.reduced}
               onTouch={props.onTouch}
               onReady={props.onReady}

@@ -27,7 +27,14 @@ import {
 import Stage from "./components/Stage";
 import SettingsPanel from "./components/Settings";
 import { DEFAULT_SETTINGS, newConversation, PROVIDERS } from "./types";
-import type { Action, Conversation, Message, Settings } from "./types";
+import type {
+  Action,
+  Conversation,
+  Message,
+  Settings,
+  TouchPoint,
+  TouchReaction,
+} from "./types";
 import { complete, contextMessages } from "./chat";
 import {
   loadApplication,
@@ -70,6 +77,9 @@ export default function App() {
   const [speech, setSpeech] = useState("");
   const [modelReady, setModelReady] = useState(false);
   const [action, setAction] = useState<Action>({ type: "idle", id: 0 });
+  const [reaction, setReaction] = useState<TouchReaction>();
+  const lastTouch = useRef(-Infinity);
+  const touchSequence = useRef(0);
   const [reset, setReset] = useState(0);
   const [reduced, setReduced] = useState(false);
   const [install, setInstall] = useState<InstallEvent | null>(null);
@@ -160,17 +170,24 @@ export default function App() {
       speechTimer.current = setTimeout(() => setSpeech(""), 4500);
     }
   }, []);
-  const touch = useCallback(() => {
-    trigger(
-      "greet",
-      [
-        "Contact reçu. Je suis là.",
-        "Vous avez besoin de moi ?",
-        "Liaison confirmée.",
-      ][Math.floor(Math.random() * 3)],
-    );
-    navigator.vibrate?.(12);
-  }, [trigger]);
+  const touch = useCallback((point: TouchPoint) => {
+    const now = performance.now();
+    if (now - lastTouch.current < 700) return;
+    lastTouch.current = now;
+    const id = ++touchSequence.current;
+    setReaction({ ...point, id, variant: id % 3 });
+    // Touch is an overlay: do not cancel thinking, speech, or a selected activity.
+    if (!busyRef.current) {
+      setSpeech(
+        point.zone === "head"
+          ? "… Je vous écoute."
+          : ["Je suis là.", "Oui ?", "Vous avez besoin de moi ?"][id % 3],
+      );
+      if (speechTimer.current) clearTimeout(speechTimer.current);
+      speechTimer.current = setTimeout(() => setSpeech(""), 2600);
+    }
+    navigator.vibrate?.(8);
+  }, []);
   const storeConversation = useCallback(
     async (conversation: Conversation) => {
       setConversations((items) =>
@@ -389,6 +406,7 @@ export default function App() {
         night={settings.night}
         reduced={reduced}
         onTouch={touch}
+        reaction={reaction}
         onReady={onReady}
         reset={reset}
       />
@@ -441,7 +459,7 @@ export default function App() {
       <div className="scene-status">
         <span className="status-dash" />
         <span data-testid="motion-label">{motionLabels[action.type]}</span>
-        <small>MODÈLE 3D · ANIMATION SQUELETTIQUE</small>
+        <small>RENDU ANIME · PRÉSENCE VIVANTE</small>
       </div>
       <nav className="side-tools" aria-label="Votre espace">
         <button

@@ -1,5 +1,5 @@
 import { Bone, Object3D, Quaternion, Vector3 } from "three";
-import type { Action, Motion } from "./types";
+import type { Action, Motion, TouchReaction } from "./types";
 
 const canonical = (name: string) =>
   name
@@ -22,6 +22,8 @@ export function createMotion(root: Object3D, bones: Bone[]) {
     return bone;
   };
   const rest = bones.map((b) => b.quaternion.clone());
+  const restScales = bones.map((b) => b.scale.clone());
+  const previousScales = restScales.map((s) => s.clone());
   const previous = rest.map((q) => q.clone());
   const world = new Map(
     bones.map((b) => [b, b.getWorldQuaternion(new Quaternion())]),
@@ -89,6 +91,8 @@ export function createMotion(root: Object3D, bones: Bone[]) {
     aim(leg.lower, leg.foot, target.sub(position(leg.lower)));
     worldRotation(leg.foot, world.get(leg.foot)!.clone());
   }
+  let reactionId: number | undefined,
+    reactionTime = 100;
   let id: number | undefined,
     type: Motion = "idle",
     elapsed = 0,
@@ -99,6 +103,7 @@ export function createMotion(root: Object3D, bones: Bone[]) {
     reduced: boolean,
     pointer = { x: 0, y: 0 },
     instant = false,
+    reaction?: TouchReaction,
   ) {
     const dt = Math.max(0, delta);
     if (action.id !== id || action.type !== type) {
@@ -106,20 +111,61 @@ export function createMotion(root: Object3D, bones: Bone[]) {
       type = action.type;
       elapsed = 0;
     }
+    if (reaction && reaction.id !== reactionId) {
+      reactionId = reaction.id;
+      reactionTime = 0;
+    }
+    reactionTime += dt;
     if (!reduced) {
       elapsed += dt;
       time += dt;
     }
-    bones.forEach((bone, i) => bone.quaternion.copy(rest[i]));
+    bones.forEach((bone, i) => {
+      bone.quaternion.copy(rest[i]);
+      bone.scale.copy(restScales[i]);
+    });
     root.updateMatrixWorld(true);
     const active = reduced ? 0 : 1;
     const enter = smooth(elapsed / 0.5) * active;
-    const breath = Math.sin(time * 1.7) * 0.008 * active;
+    // 4.8-second breathing cycle; expand the rib cage, never translate the root.
+    const breathCycle = Math.sin((time * Math.PI * 2) / 4.8);
+    const breath = breathCycle * 0.014 * active;
+    const chest = find("Spine2");
+    chest.scale.multiply(
+      new Vector3(
+        1 + breathCycle * 0.007 * active,
+        1 + breathCycle * 0.012 * active,
+        1 + breathCycle * 0.018 * active,
+      ),
+    );
+    const touchEnvelope =
+      smooth(reactionTime / 0.22) * smooth((2.6 - reactionTime) / 1.1) * active;
+    const flinch = Math.exp(-(((reactionTime - 0.24) / 0.2) ** 2)) * active;
+    const touchX = Math.max(-1, Math.min(1, reaction?.x ?? 0));
+    const touchY = Math.max(-1, Math.min(1, reaction?.y ?? 0));
+    const headTouch = reaction?.zone === "head" ? 1 : 0;
+    const variation = (reaction?.variant ?? 0) - 1;
+    rotate(find("Spine"), new Vector3(1, 0, 0), -flinch * 0.025);
+    rotate(
+      find("Spine1"),
+      new Vector3(0, 1, 0),
+      touchX * touchEnvelope * 0.035,
+    );
+    for (const [i, side] of ["Left", "Right"].entries()) {
+      rotate(
+        find(side + "Shoulder"),
+        new Vector3(0, 0, 1),
+        (i === 0 ? 1 : -1) * (breath * 0.65 + flinch * 0.025),
+      );
+    }
     const wave = type === "greet" ? enter * smooth((3.6 - elapsed) / 0.65) : 0;
     const walk = type === "walk" ? enter * smooth((6.8 - elapsed) / 0.7) : 0;
     const nod =
       type === "agree"
-        ? enter * smooth((2.8 - elapsed) / 0.7) * Math.sin(elapsed * 5) * 0.12
+        ? enter *
+          smooth((2.8 - elapsed) / 0.7) *
+          Math.sin(elapsed * 4.2) *
+          0.085
         : 0;
     const focus = type === "thinking" || type === "focus" ? enter : 0;
     const speak = type === "speak" ? enter : 0;
@@ -127,21 +173,31 @@ export function createMotion(root: Object3D, bones: Bone[]) {
     rotate(
       find("Spine2"),
       new Vector3(0, 1, 0),
-      Math.sin(time * 1.8) * 0.02 * speak,
+      Math.sin(time * 1.8) * 0.025 * speak +
+        Math.sin(time * 0.65) * 0.006 * active,
     );
     rotate(
       find("Head"),
       new Vector3(1, 0, 0),
       nod +
-        focus * 0.09 -
+        focus * 0.09 +
+        touchEnvelope * (0.035 + headTouch * 0.045 - touchY * 0.035) -
         Math.max(-1, Math.min(1, pointer.y)) * 0.055 * active,
     );
     rotate(
       find("Head"),
       new Vector3(0, 1, 0),
-      Math.max(-1, Math.min(1, pointer.x)) * 0.12 * active,
+      Math.max(-1, Math.min(1, pointer.x)) *
+        0.12 *
+        active *
+        (1 - touchEnvelope) +
+        touchX * touchEnvelope * 0.18,
     );
-    rotate(find("Head"), new Vector3(0, 0, 1), focus * 0.025);
+    rotate(
+      find("Head"),
+      new Vector3(0, 0, 1),
+      focus * 0.025 + touchEnvelope * (touchX * -0.045 + variation * 0.012),
+    );
     for (const [index, side] of ["Left", "Right"].entries()) {
       const sign = index === 0 ? 1 : -1;
       const arm = find(side + "Arm"),
@@ -155,7 +211,7 @@ export function createMotion(root: Object3D, bones: Bone[]) {
         new Vector3(
           sign * (0.19 + greeting * 0.5),
           -1 + greeting * 0.45,
-          0.015 + swing,
+          0.015 + swing + flinch * 0.065,
         ),
       );
       // Raised forearm is blended as a direction, avoiding Euler flips and wrist spins.
@@ -163,9 +219,12 @@ export function createMotion(root: Object3D, bones: Bone[]) {
         forearm,
         hand,
         new Vector3(
-          sign * (0.06 + greeting * (0.25 + Math.sin(elapsed * 7) * 0.12)),
+          sign * (0.06 + greeting * (0.25 + Math.sin(elapsed * 5.4) * 0.12)),
           -1 + greeting * 1.9,
-          0.12 + greeting * 0.3 + swing,
+          0.12 +
+            greeting * 0.3 +
+            swing +
+            speak * (0.06 + Math.sin(time * 2.1 + index) * 0.04),
         ),
       );
       aim(
@@ -180,7 +239,7 @@ export function createMotion(root: Object3D, bones: Bone[]) {
       rotate(
         hand,
         new Vector3(0, 0, 1),
-        greeting * Math.sin(elapsed * 7) * 0.1,
+        greeting * Math.sin(elapsed * 5.4) * 0.1,
       );
     }
     if (walk > 0)
@@ -191,6 +250,8 @@ export function createMotion(root: Object3D, bones: Bone[]) {
     bones.forEach((bone, i) => {
       previous[i].slerp(bone.quaternion, alpha).normalize();
       bone.quaternion.copy(previous[i]);
+      previousScales[i].lerp(bone.scale, alpha);
+      bone.scale.copy(previousScales[i]);
     });
     root.updateMatrixWorld(true);
   }
