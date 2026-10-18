@@ -2,9 +2,13 @@
 
 ## Avatar cinématique 2B
 
-`public/assets/2b-cinematic.png` est une nouvelle illustration générée pour cette application à partir des références de 2B fournies par l’utilisateur. Elle ne reprend pas le fichier de l’illustrateur ni ses inscriptions. Le rendu semi-réaliste est animé sur une surface WebGL en 2,5D ; il ne s’agit pas d’un modèle 3D officiel reconstruit depuis le jeu.
+`public/assets/2b-cinematic.png` et l’atlas `public/assets/2b-poses.png` sont des illustrations générées pour cette application à partir des références de 2B fournies par l’utilisateur. Elles ne reprennent pas le fichier de l’illustrateur ni ses inscriptions. Le rendu semi-réaliste est animé sur une surface WebGL en 2,5D ; il ne s’agit pas d’un modèle 3D officiel reconstruit depuis le jeu.
 
 2B, YoRHa et NieR:Automata appartiennent à leurs ayants droit, notamment Square Enix / PlatinumGames. Cette application compagnon est une création de fan non officielle.
+
+## Emblème YoRHa
+
+`public/icons/yorha-emblem.svg` est une vectorisation de l’emblème YoRHa provenant de [zcode-canvas](https://github.com/Kevinzzz6/zcode-canvas/blob/main/themes/yorha/emblem.svg). Le [NOTICE du projet source](https://github.com/Kevinzzz6/zcode-canvas/blob/main/NOTICE.md) précise que l’emblème de NieR:Automata est exclu de sa licence MIT. Les droits du symbole restent ceux de ses ayants droit ; il est utilisé ici dans cette application de fan. Les icônes `yorha-192.png` et `yorha-512.png` sont des rendus de ce SVG sur un fond clair.
 
 ## Ancien modèle
 

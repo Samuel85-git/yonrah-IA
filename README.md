@@ -48,13 +48,15 @@ Le workflow utilise le `GITHUB_TOKEN` de GitHub Actions avec `packages: write`. 
 
 ## 2B et les animations
 
-Le personnage a été remplacé par une nouvelle illustration semi-réaliste haute définition, générée spécialement pour cette application à partir des références fournies par l’utilisateur. Elle est affichée sur une surface WebGL subdivisée en 2,5D. Le visage, les matières de la robe et les cheveux sont entièrement renouvelés ; l’ancien GLB n’est plus utilisé.
+Le personnage utilise quatre poses semi-réalistes générées pour cette application : repos, salut de la main, posture attentive et déplacement. L’image principale est `public/assets/2b-cinematic.png` ; les trois nouvelles poses sont regroupées dans `public/assets/2b-poses.png`. Chaque pose est découpée selon sa transparence puis affichée sur une surface WebGL subdivisée avec de courtes transitions.
 
-La caméra reste frontale, avec une petite profondeur et une parallaxe au glissement. Ce rendu n’offre pas de rotation à 360° : une image de face ne contient pas les vues arrière du personnage. Le moteur déforme localement le maillage pour la respiration, les mouvements de tête et d’épaules, les changements de posture et les réactions au toucher. Les pieds restent ancrés au sol.
+La respiration, les épaules, la tête, les cheveux et la robe sont animés par déformations locales et ressorts amortis. La pose de déplacement ajoute des pas alternés modérés, entraînant la robe. La caméra offre une légère parallaxe ; les poses illustrées représentent principalement l’avant du personnage.
 
-La robe et les cheveux suivent des ressorts amortis qui réagissent aux gestes puis reviennent progressivement au repos. Il s’agit de mouvements secondaires procéduraux, pas d’une simulation complète de tissu avec couture et collisions. Le salut est une reconnaissance discrète de la tête ; Bouger déclenche un changement d’appui, sans tenter une marche volumétrique à partir de l’image de face.
+**Bouger** ouvre le panneau de déplacement et lance un petit trajet. Les flèches permettent d’aller à gauche/droite, de reculer ou d’approcher. Un toucher dans une zone libre choisit une destination lorsque ce panneau est ouvert. Le mouvement accélère et ralentit, reste dans les limites de l’écran et s’arrête à destination. La profondeur change la taille du personnage, sa position et son ombre au sol. Arrêter interrompt le trajet ; Recentrer remet 2B au centre. Les boutons Repos, Salut et À l’écoute choisissent les poses sans effacer le chat.
 
-Les réactions au toucher restent superposées à l’activité en cours : elles n’interrompent pas la réflexion ou le dialogue. Les contacts sont temporisés et les glissements de caméra ne sont pas des contacts. La préférence système de réduction des mouvements est respectée. Sans WebGL, un portrait statique permet de conserver l’accès au chat.
+Le déplacement est une mise en scène semi-3D de poses 2,5D, avec des mouvements de jambes limités par les illustrations. La robe utilise des ressorts procéduraux, sans simulation complète de tissu ou collisions. Les réactions au toucher continuent de se superposer au dialogue et à la réflexion. Les glissements changent légèrement l’angle et ne déclenchent pas de contact.
+
+Avec la réduction des mouvements, une destination choisie est appliquée directement et les animations sont désactivées. Sans WebGL, un portrait statique conserve l’accès au chat.
 
 Ces mouvements ne sont pas les animations officielles de NieR:Automata. La voix optionnelle reste celle du navigateur, sans synchronisation labiale complète.
 

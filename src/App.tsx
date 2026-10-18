@@ -6,7 +6,6 @@ import {
   ArrowUp,
   Volume2,
   VolumeX,
-  Sparkles,
   Scan,
   Focus,
   Hand,
@@ -23,8 +22,13 @@ import {
   ArrowDownToLine,
   Square,
   Circle,
+  ArrowLeft,
+  ArrowRight,
+  ArrowDown,
+  Move,
 } from "lucide-react";
 import Stage from "./components/CinematicStage";
+import type { SceneDestination } from "./locomotion";
 import SettingsPanel from "./components/Settings";
 import { DEFAULT_SETTINGS, newConversation, PROVIDERS } from "./types";
 import type {
@@ -81,6 +85,26 @@ export default function App() {
   const lastTouch = useRef(-Infinity);
   const touchSequence = useRef(0);
   const [reset, setReset] = useState(0);
+  const [navigation, setNavigation] = useState(false);
+  const [destination, setDestination] = useState<SceneDestination>();
+  const travelSequence = useRef(0);
+  const travelTo = useCallback((x: number, depth: number) => {
+    setDestination({
+      id: ++travelSequence.current,
+      x: Math.max(-1, Math.min(1, x)),
+      depth: Math.max(0, Math.min(1, depth)),
+    });
+  }, []);
+  const haltTravel = useCallback(() => {
+    const stage = document.querySelector<HTMLElement>("[data-testid=stage]");
+    setDestination({
+      id: ++travelSequence.current,
+      x: Number(stage?.dataset.x) || 0,
+      depth: Number(stage?.dataset.depth) || 0,
+      stop: true,
+    });
+  }, []);
+
   const [reduced, setReduced] = useState(false);
   const [install, setInstall] = useState<InstallEvent | null>(null);
   const [memoryDraft, setMemoryDraft] = useState("");
@@ -170,6 +194,13 @@ export default function App() {
       speechTimer.current = setTimeout(() => setSpeech(""), 4500);
     }
   }, []);
+  const choosePose = useCallback(
+    (type: Action["type"], words?: string) => {
+      haltTravel();
+      trigger(type, words);
+    },
+    [haltTravel, trigger],
+  );
   const touch = useCallback((point: TouchPoint) => {
     const now = performance.now();
     if (now - lastTouch.current < 700) return;
@@ -409,10 +440,17 @@ export default function App() {
         reaction={reaction}
         onReady={onReady}
         reset={reset}
+        navigation={navigation}
+        destination={destination}
+        onDestination={travelTo}
       />
       <header className="app-header">
         <a href="/" className="wordmark">
-          <span className="yorha-mark">◇</span>
+          <img
+            className="yorha-emblem"
+            src="/icons/yorha-emblem.svg"
+            alt="Emblème YoRHa"
+          />
           <span>
             YoRHa<small>COMPANION / 2B</small>
           </span>
@@ -491,7 +529,10 @@ export default function App() {
           className="icon-glass"
           aria-label="Recentrer la caméra"
           title="Recentrer"
-          onClick={() => setReset((value) => value + 1)}
+          onClick={() => {
+            travelTo(0, 0);
+            setReset((value) => value + 1);
+          }}
         >
           <Scan size={18} />
         </button>
@@ -522,16 +563,27 @@ export default function App() {
       >
         <button
           className="dock-button"
-          onClick={() => trigger("greet", "Liaison établie. Bonjour.")}
+          onClick={() => choosePose("greet", "Liaison établie. Bonjour.")}
         >
           <Hand size={18} />
           <span>Saluer</span>
         </button>
         <button
           className="dock-button"
-          onClick={() => trigger("walk", "Vérification des systèmes moteurs.")}
+          aria-expanded={navigation}
+          aria-controls="movement-panel"
+          onClick={() => {
+            if (navigation) {
+              haltTravel();
+              setNavigation(false);
+            } else {
+              setNavigation(true);
+              travelTo(0.65, 0.25);
+              trigger("walk", "Indiquez-moi où aller.");
+            }
+          }}
         >
-          <Sparkles size={18} />
+          <Move size={18} />
           <span>Bouger</span>
         </button>
         <button
@@ -539,7 +591,7 @@ export default function App() {
             "dock-button " + (action.type === "focus" ? "selected" : "")
           }
           onClick={() =>
-            trigger(
+            choosePose(
               action.type === "focus" ? "idle" : "focus",
               action.type === "focus"
                 ? "Pause terminée."
@@ -565,6 +617,90 @@ export default function App() {
           <span className="connection-dot" data-connected={connected} />
         </button>
       </div>
+      {navigation && (
+        <section
+          id="movement-panel"
+          className="movement-panel glass"
+          aria-label="Déplacement de 2B"
+        >
+          <div className="movement-title">
+            <span>Déplacement</span>
+            <button
+              aria-label="Fermer les déplacements"
+              onClick={() => {
+                haltTravel();
+                setNavigation(false);
+              }}
+            >
+              <X size={15} />
+            </button>
+          </div>
+          <p>Touchez une zone libre pour y aller, ou utilisez les flèches.</p>
+          <div className="movement-pad">
+            <button
+              aria-label="Reculer"
+              onClick={() =>
+                travelTo(destination?.x ?? 0, (destination?.depth ?? 0) + 0.25)
+              }
+            >
+              <ArrowUp size={17} />
+            </button>
+            <button
+              aria-label="Aller à gauche"
+              onClick={() =>
+                travelTo((destination?.x ?? 0) - 0.45, destination?.depth ?? 0)
+              }
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <button aria-label="Arrêter le déplacement" onClick={haltTravel}>
+              <Square size={13} />
+            </button>
+            <button
+              aria-label="Aller à droite"
+              onClick={() =>
+                travelTo((destination?.x ?? 0) + 0.45, destination?.depth ?? 0)
+              }
+            >
+              <ArrowRight size={17} />
+            </button>
+            <button
+              aria-label="Approcher"
+              onClick={() =>
+                travelTo(destination?.x ?? 0, (destination?.depth ?? 0) - 0.25)
+              }
+            >
+              <ArrowDown size={17} />
+            </button>
+          </div>
+          <div className="pose-choices" aria-label="Poses de 2B">
+            <button
+              onClick={() => {
+                haltTravel();
+                trigger("idle");
+              }}
+            >
+              Repos
+            </button>
+            <button
+              onClick={() => {
+                haltTravel();
+                trigger("greet", "Bonjour.");
+              }}
+            >
+              Salut
+            </button>
+            <button
+              onClick={() => {
+                haltTravel();
+                trigger("focus", "Je vous écoute.");
+              }}
+            >
+              À l’écoute
+            </button>
+          </div>
+        </section>
+      )}
       <div className="world-caption">
         POUR LA GLOIRE DE L’HUMANITÉ<span>Un espace à vous.</span>
       </div>

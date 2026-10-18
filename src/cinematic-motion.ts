@@ -53,6 +53,8 @@ export interface CinematicPose {
   hair: number;
   shoulder: number;
   contact: number;
+  stride: number;
+  step: number;
 }
 
 export function neutralCinematicPose(): CinematicPose {
@@ -68,6 +70,8 @@ export function neutralCinematicPose(): CinematicPose {
     hair: 0,
     shoulder: 0,
     contact: 0,
+    stride: 0,
+    step: 0,
   };
 }
 
@@ -98,7 +102,7 @@ export function deformCinematicPoint(
   weights = cinematicWeights(x, y),
   aspect = 0.39,
 ) {
-  if (weights.planted === 0) return { x, y, z: 0 };
+  if (weights.planted === 0 && pose.stride === 0) return { x, y, z: 0 };
   const headAngle = pose.headRoll * weights.head;
   const headPivotY = 0.84;
   const cosine = Math.cos(headAngle);
@@ -122,12 +126,24 @@ export function deformCinematicPoint(
     pose.breath * weights.chest * 0.0018 +
     pose.shoulder * weights.shoulder * 0.0022 +
     Math.sin(x * 6) * pose.cloth * weights.cloth * 0.14;
+  // Restrained alternating steps in the illustrated lower limbs, anchored at each hip.
+  const leg =
+    (1 - smooth((y - 0.38) / 0.13)) * smooth((Math.abs(x) - 0.04) / 0.13);
+  const side = x < 0 ? -1 : 1;
+  const legSwing = Math.sin(pose.step + (side < 0 ? Math.PI : 0)) * pose.stride;
+  const knee = smooth((0.4 - y) / 0.4);
+  const legX = legSwing * knee * 0.022 * leg;
+  const lift =
+    Math.max(0, Math.cos(pose.step + (side < 0 ? Math.PI : 0))) ** 2 *
+    pose.stride *
+    0.006 *
+    leg;
   const z =
     pose.breath * weights.chest * 0.0014 +
     pose.cloth * weights.cloth * Math.sin(x * 5) * 0.18;
   return {
-    x: x + dx * weights.planted,
-    y: y + dy * weights.planted,
+    x: x + dx * weights.planted + legX,
+    y: y + dy * weights.planted + lift,
     z: z * weights.planted,
   };
 }

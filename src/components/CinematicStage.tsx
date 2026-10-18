@@ -11,6 +11,7 @@ import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import {
   Group,
   Mesh,
+  MeshBasicMaterial,
   OrthographicCamera,
   PlaneGeometry,
   Raycaster,
@@ -25,6 +26,9 @@ import {
   deformCinematicPoint,
 } from "../cinematic-motion";
 
+import { createLocomotion } from "../locomotion";
+import type { SceneDestination } from "../locomotion";
+
 type Props = {
   action: Action;
   night: boolean;
@@ -33,6 +37,9 @@ type Props = {
   reaction?: TouchReaction;
   onReady: (ready: boolean) => void;
   reset: number;
+  destination?: SceneDestination;
+  navigation?: boolean;
+  onDestination?: (x: number, depth: number) => void;
 };
 
 class ArtworkBoundary extends Component<
@@ -54,107 +61,132 @@ class ArtworkBoundary extends Component<
 }
 
 function Artwork(props: Props) {
-  const texture = useLoader(TextureLoader, "/assets/2b-cinematic.png");
+  const textures = useLoader(TextureLoader, [
+    "/assets/2b-cinematic.png",
+    "/assets/2b-poses.png",
+  ]);
   const { gl, size, camera } = useThree();
-  const mesh = useRef<Mesh>(null);
+  const meshes = useRef<(Mesh | null)[]>([]);
+  const materials = useRef<(MeshBasicMaterial | null)[]>([]);
   const group = useRef<Group>(null);
+  const shadow = useRef<Mesh>(null);
+  const marker = useRef<Mesh>(null);
+  const activeFrame = useRef(0);
+  const opacity = useRef([1, 0, 0, 0]);
   const pan = useRef({ x: 0, y: 0, actualX: 0, actualY: 0 });
   const motion = useMemo(createCinematicMotion, []);
-  const touchCallback = useRef(props.onTouch);
-  touchCallback.current = props.onTouch;
-  const reduced = useRef(props.reduced);
-  reduced.current = props.reduced;
+  const locomotion = useMemo(createLocomotion, []);
+  const latest = useRef(props);
+  latest.current = props;
   const prepared = useMemo(() => {
-    const image = texture.image as HTMLImageElement;
-    const w = image.naturalWidth || image.width;
-    const h = image.naturalHeight || image.height;
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) throw new Error("Cannot read the character artwork.");
-    context.drawImage(image, 0, 0);
-    const pixels = context.getImageData(0, 0, w, h).data;
-    let left = w,
-      right = 0,
-      top = h,
-      bottom = 0;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        if (pixels[(y * w + x) * 4 + 3] > 24) {
-          left = Math.min(left, x);
-          right = Math.max(right, x);
-          top = Math.min(top, y);
-          bottom = Math.max(bottom, y);
-        }
+    return [0, 1, 2, 3].map((frame) => {
+      const texture = textures[frame === 0 ? 0 : 1];
+      const image = texture.image as HTMLImageElement;
+      const w = image.naturalWidth || image.width,
+        h = image.naturalHeight || image.height;
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) throw new Error("Cannot read artwork");
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, w, h).data;
+      const start = frame === 0 ? 0 : Math.round(((frame - 1) * w) / 3),
+        end = frame === 0 ? w : Math.round((frame * w) / 3);
+      let left = end,
+        right = start,
+        top = h,
+        bottom = 0;
+      for (let y = 0; y < h; y++)
+        for (let x = start; x < end; x++)
+          if (pixels[(y * w + x) * 4 + 3] > 24) {
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+          }
+      if (right <= left || bottom <= top) throw new Error("Empty pose");
+      left = Math.max(start, left - 3);
+      right = Math.min(end - 1, right + 3);
+      top = Math.max(0, top - 3);
+      bottom = Math.min(h - 1, bottom + 3);
+      const height = 2,
+        width = (2 * (right - left + 1)) / (bottom - top + 1);
+      const geometry = new PlaneGeometry(width, height, 80, 128),
+        position = geometry.getAttribute("position"),
+        uv = geometry.getAttribute("uv");
+      const original = new Float32Array(position.array),
+        weights = [];
+      for (let i = 0; i < position.count; i++) {
+        const x = (position.getX(i) / width) * 2,
+          y = position.getY(i) / height + 0.5;
+        weights.push(cinematicWeights(x, y));
+        uv.setXY(
+          i,
+          (left + ((x + 1) / 2) * (right - left)) / w,
+          1 - (top + (1 - y) * (bottom - top)) / h,
+        );
       }
-    }
-    if (right <= left || bottom <= top)
-      throw new Error("Empty character artwork.");
-    left = Math.max(0, left - 4);
-    top = Math.max(0, top - 4);
-    right = Math.min(w - 1, right + 4);
-    bottom = Math.min(h - 1, bottom + 4);
-    const aspect = (right - left + 1) / (bottom - top + 1);
-    const height = 2;
-    const width = height * aspect;
-    const geometry = new PlaneGeometry(width, height, 80, 128);
-    const position = geometry.getAttribute("position");
-    const uv = geometry.getAttribute("uv");
-    const original = new Float32Array(position.array);
-    const weights = [];
-    for (let i = 0; i < position.count; i++) {
-      const x = (position.getX(i) / width) * 2;
-      const y = position.getY(i) / height + 0.5;
-      weights.push(cinematicWeights(x, y));
-      uv.setXY(
-        i,
-        (left + ((x + 1) / 2) * (right - left)) / w,
-        1 - (top + (1 - y) * (bottom - top)) / h,
-      );
-    }
-    uv.needsUpdate = true;
-    texture.colorSpace = SRGBColorSpace;
-    texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
-    texture.needsUpdate = true;
-    return {
-      geometry,
-      original,
-      weights,
-      pixels,
-      w,
-      h,
-      width,
-      height,
-      left,
-      top,
-      right,
-      bottom,
-    };
-  }, [texture, gl]);
-
-  useEffect(() => () => prepared.geometry.dispose(), [prepared]);
+      texture.colorSpace = SRGBColorSpace;
+      texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+      texture.needsUpdate = true;
+      return {
+        texture,
+        geometry,
+        original,
+        weights,
+        pixels,
+        w,
+        h,
+        width,
+        height,
+        left,
+        right,
+        top,
+        bottom,
+      };
+    });
+  }, [textures, gl]);
+  const maximumWidth = Math.max(...prepared.map((p) => p.width));
+  const fittedZoom = Math.min(
+    size.height / 2.21,
+    size.width / (maximumWidth * 1.16),
+  );
+  const halfWidth = size.width / (2 * fittedZoom);
+  const safeX = Math.max(
+    0.04,
+    Math.min(0.85, halfWidth - maximumWidth / 2 - 0.07),
+  );
+  const bounds = useRef({ safeX, halfWidth });
+  bounds.current = { safeX, halfWidth };
+  useEffect(
+    () => () => prepared.forEach((p) => p.geometry.dispose()),
+    [prepared],
+  );
   useEffect(() => {
     props.onReady(true);
   }, [props.onReady, prepared]);
   useEffect(() => {
-    if (!(camera instanceof OrthographicCamera)) return;
-    // Use the actual canvas size: the full silhouette fits both mobile and desktop.
-    camera.zoom = Math.min(
-      size.height / 2.21,
-      size.width / (prepared.width * 1.16),
-    );
-    camera.updateProjectionMatrix();
-  }, [camera, size, prepared.width]);
+    if (camera instanceof OrthographicCamera) {
+      camera.zoom = Math.min(
+        size.height / 2.21,
+        size.width / (maximumWidth * 1.16),
+      );
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, size, maximumWidth]);
   useEffect(() => {
     pan.current = { x: 0, y: 0, actualX: 0, actualY: 0 };
-  }, [props.reset, props.reduced]);
-
+    locomotion.reset();
+  }, [props.reset, locomotion]);
   useEffect(() => {
-    const canvas = gl.domElement;
-    const raycaster = new Raycaster();
-    const cursor = new Vector2();
-    const pointers = new Set<number>();
+    pan.current = { x: 0, y: 0, actualX: 0, actualY: 0 };
+  }, [props.reduced]);
+  useEffect(() => {
+    const canvas = gl.domElement,
+      raycaster = new Raycaster(),
+      cursor = new Vector2(),
+      pointers = new Set<number>();
     let press:
       | {
           id: number;
@@ -184,10 +216,10 @@ function Artwork(props: Props) {
     };
     const move = (event: PointerEvent) => {
       if (!press || event.pointerId !== press.id || pointers.size > 1) return;
-      const dx = event.clientX - press.x;
-      const dy = event.clientY - press.y;
+      const dx = event.clientX - press.x,
+        dy = event.clientY - press.y;
       if (Math.hypot(dx, dy) > 7) press.moved = true;
-      if (!press.moved || reduced.current) return;
+      if (!press.moved || latest.current.reduced) return;
       const rect = canvas.getBoundingClientRect();
       pan.current.x = Math.max(
         -1,
@@ -217,28 +249,19 @@ function Artwork(props: Props) {
         1 - ((event.clientY - rect.top) / rect.height) * 2,
       );
       raycaster.setFromCamera(cursor, camera);
-      const hit = mesh.current
-        ? raycaster.intersectObject(mesh.current, false)[0]
-        : undefined;
+      const index = activeFrame.current,
+        p = prepared[index],
+        mesh = meshes.current[index];
+      const hit = mesh ? raycaster.intersectObject(mesh, false)[0] : undefined;
       if (hit?.uv) {
-        const px = Math.max(
-          0,
-          Math.min(prepared.w - 1, Math.round(hit.uv.x * prepared.w)),
-        );
-        const py = Math.max(
-          0,
-          Math.min(prepared.h - 1, Math.round((1 - hit.uv.y) * prepared.h)),
-        );
-        if (prepared.pixels[(py * prepared.w + px) * 4 + 3] > 40) {
-          const y = 1 - (py - prepared.top) / (prepared.bottom - prepared.top);
-          touchCallback.current({
+        const px = Math.max(0, Math.min(p.w - 1, Math.round(hit.uv.x * p.w))),
+          py = Math.max(0, Math.min(p.h - 1, Math.round((1 - hit.uv.y) * p.h)));
+        if (p.pixels[(py * p.w + px) * 4 + 3] > 40) {
+          const y = 1 - (py - p.top) / (p.bottom - p.top);
+          latest.current.onTouch({
             x: Math.max(
               -1,
-              Math.min(
-                1,
-                ((px - prepared.left) / (prepared.right - prepared.left)) * 2 -
-                  1,
-              ),
+              Math.min(1, ((px - p.left) / (p.right - p.left)) * 2 - 1),
             ),
             y: y * 2 - 1,
             zone: y > 0.835 ? "head" : "body",
@@ -246,13 +269,25 @@ function Artwork(props: Props) {
           return;
         }
       }
-      touchCallback.current({ x: cursor.x, y: cursor.y, zone: "space" });
+      if (latest.current.navigation) {
+        latest.current.onDestination?.(
+          Math.max(
+            -1,
+            Math.min(
+              1,
+              (cursor.x * bounds.current.halfWidth) / bounds.current.safeX,
+            ),
+          ),
+          Math.max(0, Math.min(1, (cursor.y + 0.7) / 1.4)),
+        );
+      } else
+        latest.current.onTouch({ x: cursor.x, y: cursor.y, zone: "space" });
     };
-    const cancel = (event: PointerEvent) => {
-      pointers.delete(event.pointerId);
-      if (press?.id === event.pointerId) press = undefined;
-      if (canvas.hasPointerCapture(event.pointerId))
-        canvas.releasePointerCapture(event.pointerId);
+    const cancel = (e: PointerEvent) => {
+      pointers.delete(e.pointerId);
+      if (press?.id === e.pointerId) press = undefined;
+      if (canvas.hasPointerCapture(e.pointerId))
+        canvas.releasePointerCapture(e.pointerId);
     };
     canvas.addEventListener("pointerdown", down);
     canvas.addEventListener("pointermove", move);
@@ -267,75 +302,147 @@ function Artwork(props: Props) {
       canvas.removeEventListener("lostpointercapture", cancel);
     };
   }, [gl, camera, prepared]);
-
   useFrame((_, delta) => {
+    const travel = locomotion.update(props.destination, delta, props.reduced);
     const pose = motion.update(
       props.action,
       delta,
       props.reduced,
       props.reaction,
     );
-    const vertices = prepared.geometry.getAttribute("position");
-    for (let i = 0; i < vertices.count; i++) {
-      const x = (prepared.original[i * 3] / prepared.width) * 2;
-      const y = prepared.original[i * 3 + 1] / prepared.height + 0.5;
-      const point = deformCinematicPoint(
-        x,
-        y,
-        pose,
-        prepared.weights[i],
-        prepared.width / prepared.height,
-      );
-      vertices.setXYZ(
-        i,
-        (point.x * prepared.width) / 2,
-        (point.y - 0.5) * prepared.height,
-        point.z * prepared.height,
-      );
+    pose.stride = travel.stride;
+    pose.step = travel.phase;
+    pose.cloth +=
+      travel.stride * Math.sin(travel.phase - 0.4) * 0.012 + travel.vx * 0.02;
+    pose.hair += travel.vx * 0.003;
+    const index = travel.moving
+      ? 3
+      : props.action.type === "greet"
+        ? 1
+        : ["focus", "thinking"].includes(props.action.type)
+          ? 2
+          : 0;
+    activeFrame.current = index;
+    const blend = 1 - Math.exp(-Math.max(0, delta) * 20);
+    for (let frame = 0; frame < prepared.length; frame++) {
+      opacity.current[frame] +=
+        (Number(frame === index) - opacity.current[frame]) *
+        (props.reduced ? 1 : blend);
+      const material = materials.current[frame],
+        mesh = meshes.current[frame];
+      if (material) material.opacity = opacity.current[frame];
+      if (mesh) mesh.visible = opacity.current[frame] > 0.003;
+      if (opacity.current[frame] < 0.003) continue;
+      const p = prepared[frame],
+        vertices = p.geometry.getAttribute("position");
+      for (let i = 0; i < vertices.count; i++) {
+        const x = (p.original[i * 3] / p.width) * 2,
+          y = p.original[i * 3 + 1] / p.height + 0.5;
+        const point = deformCinematicPoint(
+          x,
+          y,
+          pose,
+          p.weights[i],
+          p.width / p.height,
+        );
+        vertices.setXYZ(
+          i,
+          (point.x * p.width) / 2,
+          (point.y - 0.5) * p.height,
+          point.z * p.height,
+        );
+      }
+      vertices.needsUpdate = true;
     }
-    vertices.needsUpdate = true;
-    // A restrained view adjustment suggests depth without exposing the paper-thin sides.
-    const damping = 1 - Math.exp(-Math.min(delta, 0.1) * 7);
+    const damping = 1 - Math.exp(-Math.max(0, delta) * 7);
     pan.current.actualX += (pan.current.x - pan.current.actualX) * damping;
     pan.current.actualY += (pan.current.y - pan.current.actualY) * damping;
+    const scale = 1 - travel.depth * 0.19,
+      x = travel.x * safeX,
+      feet = -1 + travel.depth * 0.15;
     if (group.current) {
-      group.current.position.x = props.reduced
-        ? 0
-        : pan.current.actualX * 0.023;
-      group.current.position.y = props.reduced
-        ? 0
-        : pan.current.actualY * 0.017;
+      group.current.scale.setScalar(scale);
+      group.current.position.set(
+        x + (props.reduced ? 0 : pan.current.actualX * 0.023),
+        feet +
+          scale +
+          (props.reduced
+            ? 0
+            : Math.abs(Math.sin(travel.phase)) * travel.stride * 0.003),
+        travel.depth * -0.1,
+      );
       group.current.rotation.y = props.reduced
         ? 0
-        : pan.current.actualX * 0.035;
+        : pan.current.actualX * 0.035 +
+          (travel.moving ? travel.facing * 0.045 : 0);
       group.current.rotation.x = props.reduced
         ? 0
         : pan.current.actualY * -0.018;
     }
+    if (shadow.current) {
+      shadow.current.position.set(x, feet - 0.014, -0.2);
+      shadow.current.scale.set(0.27 * scale, 0.012 * scale, 1);
+    }
+    if (marker.current && props.destination) {
+      const d = props.destination;
+      marker.current.visible = !!props.navigation && travel.moving;
+      marker.current.position.set(d.x * safeX, -1 + d.depth * 0.15, -0.19);
+    }
+    const element = gl.domElement.closest(
+      "[data-testid=stage]",
+    ) as HTMLElement | null;
+    if (element) {
+      element.dataset.pose = ["idle", "greet", "focus", "walk"][index];
+      element.dataset.x = travel.x.toFixed(3);
+      element.dataset.depth = travel.depth.toFixed(3);
+      element.dataset.moving = String(travel.moving);
+    }
   });
-
   return (
     <>
-      <mesh position={[0, -1.018, -0.06]} scale={[0.28, 0.013, 1]}>
+      <mesh ref={shadow} position={[0, -1.014, -0.2]} scale={[0.27, 0.012, 1]}>
         <circleGeometry args={[1, 64]} />
         <meshBasicMaterial
           color={props.night ? "#101624" : "#58647a"}
           transparent
-          opacity={props.night ? 0.22 : 0.1}
+          opacity={props.night ? 0.22 : 0.11}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh ref={marker} visible={false} scale={[0.11, 0.015, 1]}>
+        <ringGeometry args={[0.75, 1, 40]} />
+        <meshBasicMaterial
+          color={props.night ? "#ccd7e9" : "#7b6a4b"}
+          transparent
+          opacity={0.55}
           depthWrite={false}
         />
       </mesh>
       <group ref={group}>
-        <mesh ref={mesh} geometry={prepared.geometry} frustumCulled={false}>
-          <meshBasicMaterial
-            map={texture}
-            color={props.night ? "#e2e7f5" : "#ffffff"}
-            transparent
-            alphaTest={0.015}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </mesh>
+        {prepared.map((p, i) => (
+          <mesh
+            key={i}
+            ref={(m) => {
+              meshes.current[i] = m;
+            }}
+            geometry={p.geometry}
+            frustumCulled={false}
+            renderOrder={i}
+          >
+            <meshBasicMaterial
+              ref={(m) => {
+                materials.current[i] = m;
+              }}
+              map={p.texture}
+              color={props.night ? "#e2e7f5" : "#ffffff"}
+              transparent
+              opacity={i === 0 ? 1 : 0}
+              alphaTest={0.015}
+              depthWrite={false}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
       </group>
     </>
   );
